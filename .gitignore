@@ -1,0 +1,3 @@
+initramfs/*
+!initramfs/init
+initramfs.cpio.gz

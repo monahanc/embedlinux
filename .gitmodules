@@ -4,3 +4,6 @@
 [submodule "vendor/linux"]
 	path = vendor/linux
 	url = https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git
+[submodule "vendor/busybox_mirror"]
+	path = vendor/busybox_mirror
+	url = https://github.com/vda-linux/busybox_mirror.git

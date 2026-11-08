@@ -21,5 +21,21 @@ linux-build:
 
 linux: linux-config linux-build
 
+busybox-config:
+	make -C vendor/busybox_mirror defconfig
+	sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' vendor/busybox_mirror/.config
+
+busybox-build:
+	make -C vendor/busybox_mirror -j$(nproc)
+	make -C vendor/busybox_mirror install
+
+initramfs:
+	mkdir -p initramfs/{bin,sbin,etc,proc,sys,dev,usr/bin,usr/sbin}
+	cp -t initramfs -a vendor/busybox_mirror/_install/*
+	cd initramfs && find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+
+sim-linux:
+	qemu-system-aarch64 -M virt -cpu cortex-a76 -nographic -smp 1 -kernel vendor/linux/arch/arm64/boot/Image -append "console=ttyAMA0" -m 2048 -initrd initramfs.cpio.gz
+
 sim:
 	qemu-system-aarch64 -M virt -cpu cortex-a76 -bios vendor/u-boot/u-boot.bin -m 2G -nographic
