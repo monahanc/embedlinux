@@ -29,9 +29,14 @@ busybox-build:
 	make -C vendor/busybox_mirror -j$(nproc)
 	make -C vendor/busybox_mirror install
 
+
+build-modules:
+	ARCH=arm64 make -C modules
+
 initramfs:
-	mkdir -p initramfs/{bin,sbin,etc,proc,sys,dev,usr/bin,usr/sbin}
+	mkdir -p initramfs/{bin,sbin,etc,proc,sys,dev,usr/bin,usr/sbin,usr/modules}
 	cp -t initramfs -a vendor/busybox_mirror/_install/*
+	cp -t initramfs/usr/modules modules/*.ko
 	cd initramfs && find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
 
 sim-linux:
