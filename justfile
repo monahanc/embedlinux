@@ -9,9 +9,17 @@ uboot-config:
 	ARCH=arm64 make -C vendor/u-boot qemu_arm64_defconfig
 
 uboot-build:
-	make -C vendor/u-boot -j
+	make -C vendor/u-boot -j$(nproc)
 
 uboot: uboot-config uboot-build
+
+linux-config:
+	ARCH=arm64 make -C vendor/linux defconfig
+
+linux-build:
+	ARCH=arm64 make -C vendor/linux -j$(nproc)
+
+linux: linux-config linux-build
 
 sim:
 	qemu-system-aarch64 -M virt -cpu cortex-a76 -bios vendor/u-boot/u-boot.bin -m 2G -nographic

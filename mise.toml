@@ -4,3 +4,4 @@ just = "latest"
 
 [bootstrap.packages]
 "pacman:qemu-system-aarch64" = "latest"
+"pacman:bc" = "latest"
