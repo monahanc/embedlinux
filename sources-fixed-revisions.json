@@ -7,6 +7,13 @@
                 "uri": "https://git.openembedded.org/bitbake"
             }
         },
+        "meta-raspberrypi": {
+            "git-remote": {
+                "branch": "master",
+                "rev": "72f7dfc6a6fea2490ad28ae9c660fb5728f87c40",
+                "uri": "https://git.yoctoproject.org/meta-raspberrypi"
+            }
+        },
         "meta-yocto": {
             "git-remote": {
                 "branch": "blacksail",

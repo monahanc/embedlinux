@@ -76,8 +76,18 @@ initramfs-build:
 
 # Initialize Yocto build environment via bitbake-setup
 [group('yocto')]
-yocto-init:
-	uv run bitbake-setup init --non-interactive --source-overrides sources-fixed-revisions.json ./yocto.conf.json poky distro/poky-altcfg machine/qemuarm64
+yocto-init MACHINE="raspberrypi0":
+	uv run bitbake-setup init --non-interactive --source-overrides sources-fixed-revisions.json ./yocto.conf.json poky distro/poky-altcfg machine/{{MACHINE}}
+
+# Sync active Yocto setup with changes in yocto.conf.json
+[group('yocto')]
+yocto-update:
+	uv run bitbake-setup update --update-bb-conf=yes --setup-dir bitbake-builds/poky-altcfg-blacksail
+
+# Switch target machine in active Yocto setup (e.g. raspberrypi0, raspberrypi0-wifi, qemuarm64)
+[group('yocto')]
+yocto-machine MACHINE="raspberrypi0":
+	bash -c 'source bitbake-builds/poky-altcfg-blacksail/build/init-build-env && bitbake-config-build enable-fragment machine/{{MACHINE}}'
 
 # Build Yocto target (default: core-image-minimal)
 [group('yocto')]
