@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Connor Monahan <connor@embedlinux.local>
+Date: Mon, 9 Nov 2026 20:50:00 -0800
+Subject: [PATCH] Add cmake_minimum_required to CMakeLists.txt
+
+Required by CMake policy CMP0000.
+
+Upstream-Status: Pending
+Signed-off-by: Connor Monahan <connor@embedlinux.local>
+---
+ CMakeLists.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 62dc6bf..9b22437 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,3 +1,4 @@
++cmake_minimum_required(VERSION 3.16)
+ project(mcwrapper)
+ add_executable(mcwrapper main.cpp)
+ install(TARGETS mcwrapper RUNTIME DESTINATION bin)
+-- 
+2.47.0
