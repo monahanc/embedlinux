@@ -1,1 +1,1 @@
-IMAGE_INSTALL:append = " hello mcwrapper"
+IMAGE_INSTALL:append = " hello mcwrapper kernel-module-test"
