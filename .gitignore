@@ -6,3 +6,5 @@ modules/*.ko*
 modules/*.mod*
 modules/.*
 modules/Module.symvers
+bitbake-builds/
+.venv/

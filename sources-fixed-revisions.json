@@ -1,0 +1,33 @@
+{
+    "sources": {
+        "bitbake": {
+            "git-remote": {
+                "branch": "2.20",
+                "rev": "634f8dede6b9d71b5a6691499fd05a8678b46eae",
+                "uri": "https://git.openembedded.org/bitbake"
+            }
+        },
+        "meta-yocto": {
+            "git-remote": {
+                "branch": "blacksail",
+                "rev": "d0119aa2eb77b985fcd33ac527d5c0287eb68e58",
+                "uri": "https://git.yoctoproject.org/meta-yocto"
+            }
+        },
+        "openembedded-core": {
+            "git-remote": {
+                "branch": "blacksail",
+                "rev": "3bbd2a4f81f368ae7eac580949e4717f7aeb4f06",
+                "uri": "https://git.openembedded.org/openembedded-core"
+            }
+        },
+        "yocto-docs": {
+            "git-remote": {
+                "branch": "blacksail",
+                "rev": "28a708ecb3c2ce1669094f9f4c1bdcbc28438bcc",
+                "uri": "https://git.yoctoproject.org/yocto-docs"
+            }
+        }
+    },
+    "version": "1.0"
+}

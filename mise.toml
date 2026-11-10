@@ -1,7 +1,21 @@
 [tools]
 just = "latest"
+python = "3.14"
+uv = "latest"
 "http:aarch64-none-linux-gnu" = { version = "15.3.rel2", url = "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-x86_64-aarch64-none-linux-gnu.tar.xz" }
 
 [bootstrap.packages]
 "pacman:qemu-system-aarch64" = "latest"
 "pacman:bc" = "latest"
+"pacman:chrpath" = "latest"
+"pacman:diffstat" = "latest"
+"pacman:inetutils" = "latest"
+"pacman:rpcsvc-proto" = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+
+[tasks.install]
+description = "Install dependencies"
+alias = "i"
+run = "uv pip install -r requirements.txt"
