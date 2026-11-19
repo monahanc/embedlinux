@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+upgrade_available="$(fw_printenv -n upgrade_available 2>/dev/null || echo 0)"
+if [ "$upgrade_available" != "1" ]; then
+    exit 0
+fi
+
+slot="$(fw_printenv -n slot 2>/dev/null || echo a)"
+active_root=""
+for arg in $(cat /proc/cmdline); do
+    case "$arg" in
+        root=*) active_root="${arg#root=}" ;;
+    esac
+done
+
+expected_root="/dev/mmcblk0p5"
+if [ "$slot" = "b" ]; then
+    expected_root="/dev/mmcblk0p6"
+fi
+
+if [ "$active_root" != "$expected_root" ]; then
+    echo "ab-boot-confirm: ERROR: root=$active_root does not match expected $expected_root for slot=$slot" >&2
+    exit 1
+fi
+
+echo "ab-boot-confirm: confirming slot=$slot (root=$active_root)"
+fw_setenv upgrade_available 0 bootcount 0
+sync

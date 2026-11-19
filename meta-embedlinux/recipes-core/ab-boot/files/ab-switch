@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    echo "Usage: ab-switch <status|a|b|confirm>" >&2
+    exit 1
+}
+
+cmd="${1:-status}"
+
+case "$cmd" in
+    status)
+        active_root="unknown"
+        for arg in $(cat /proc/cmdline); do
+            case "$arg" in
+                root=*) active_root="${arg#root=}" ;;
+            esac
+        done
+        echo "active_root=${active_root}"
+        echo "slot=$(fw_printenv -n slot 2>/dev/null || echo unset)"
+        echo "upgrade_available=$(fw_printenv -n upgrade_available 2>/dev/null || echo unset)"
+        echo "bootcount=$(fw_printenv -n bootcount 2>/dev/null || echo unset)"
+        echo "bootlimit=$(fw_printenv -n bootlimit 2>/dev/null || echo unset)"
+        ;;
+    a|b)
+        echo "Arming try-boot for slot ${cmd} (upgrade_available=1, bootcount=0)..."
+        fw_setenv slot "$cmd" upgrade_available 1 bootcount 0
+        sync
+        echo "Done. Reboot to test slot ${cmd} (will auto-rollback after bootlimit failed boots)."
+        ;;
+    confirm)
+        exec /usr/sbin/ab-boot-confirm
+        ;;
+    *)
+        usage
+        ;;
+esac

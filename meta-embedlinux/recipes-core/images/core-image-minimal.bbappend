@@ -1,5 +1,5 @@
 IMAGE_INSTALL:append = " hello mcwrapper kernel-module-test"
-IMAGE_INSTALL:append:rpi = " libubootenv-bin u-boot-default-env"
+IMAGE_INSTALL:append:rpi = " ab-boot"
 
 RPI_AB_WIC_DEPENDS = ""
 RPI_AB_WIC_DEPENDS:rpi = " \

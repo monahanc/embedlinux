@@ -1,14 +1,45 @@
 # Read base kernel command line provided by RPi GPU firmware (from cmdline.txt)
 fdt addr ${fdt_addr} && fdt get value bootargs /chosen bootargs
 
-# Default active A/B slot to 'a' if unset
+# Initialize A/B boot state defaults if unset
 if test -z "${slot}"; then
     setenv slot a
+fi
+if test -z "${upgrade_available}"; then
+    setenv upgrade_available 0
+fi
+if test -z "${bootcount}"; then
+    setenv bootcount 0
+fi
+if test -z "${bootlimit}"; then
+    setenv bootlimit 3
 fi
 
 # Persist initial U-Boot environment on boot partition for fw_printenv/fw_setenv
 if test ! -e @@BOOT_MEDIA@@ 0:1 uboot.env; then
     saveenv
+fi
+
+# Automatic A/B fallback state machine:
+# When upgrade_available=1, track boot attempts; if bootcount reaches bootlimit
+# without userspace confirming the boot, roll back to the previous slot.
+if test "${upgrade_available}" = "1"; then
+    if test ${bootcount} -ge ${bootlimit}; then
+        echo "Boot limit (${bootlimit}) reached on slot ${slot}! Rolling back..."
+        if test "${slot}" = "b"; then
+            setenv slot a
+        else
+            setenv slot b
+        fi
+        setenv upgrade_available 0
+        setenv bootcount 0
+        saveenv
+        echo "Rolled back to slot ${slot}"
+    else
+        setexpr bootcount ${bootcount} + 1
+        saveenv
+        echo "Unconfirmed slot ${slot}: boot attempt ${bootcount}/${bootlimit}"
+    fi
 fi
 
 # Select FIT and rootfs partitions for active slot
@@ -36,9 +67,28 @@ setenv bootargs "${bootargs} root=${root_part}"
 # clear of kernel_addr_r (0x00080000), kernel_comp_addr_r (0x02000000-0x05400000),
 # scriptaddr (0x05400000), fdt_addr_r (0x05600000), and ramdisk_addr_r (0x05700000).
 setenv fit_addr 0x06000000
-@@BOOT_MEDIA@@ dev 0
-part start @@BOOT_MEDIA@@ 0 ${fit_part} fit_start
-part size @@BOOT_MEDIA@@ 0 ${fit_part} fit_size
-@@BOOT_MEDIA@@ read ${fit_addr} ${fit_start} ${fit_size}
+setenv load_ok 0
+if @@BOOT_MEDIA@@ dev 0; then
+    if part start @@BOOT_MEDIA@@ 0 ${fit_part} fit_start; then
+        if part size @@BOOT_MEDIA@@ 0 ${fit_part} fit_size; then
+            if @@BOOT_MEDIA@@ read ${fit_addr} ${fit_start} ${fit_size}; then
+                setenv load_ok 1
+            fi
+        fi
+    fi
+fi
 
-bootm ${fit_addr}
+if test "${load_ok}" = "1"; then
+    # Arm BCM2835 hardware watchdog (15s max) during unconfirmed boots so a
+    # silent early-kernel hang forces a reset and triggers fallback.
+    if test "${upgrade_available}" = "1"; then
+        wdt dev watchdog@7e100000 && wdt start 15000
+    fi
+    bootm ${fit_addr}
+fi
+
+echo "ERROR: Failed to boot slot ${slot}!"
+if test "${upgrade_available}" = "1"; then
+    echo "Resetting to retry/rollback..."
+    reset
+fi
