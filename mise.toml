@@ -3,14 +3,9 @@ just = "latest"
 python = "3.14"
 uv = "latest"
 
-[bootstrap.packages]
-"pacman:chrpath" = "latest"
-"pacman:diffstat" = "latest"
-"pacman:inetutils" = "latest"
-"pacman:rpcsvc-proto" = "latest"
-
 [env]
 _.python.venv = { path = ".venv", create = true }
+KAS_WORK_DIR = "{{config_root}}/kas-work"
 
 [tasks.install]
 description = "Install dependencies"

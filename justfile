@@ -1,26 +1,40 @@
 set default-list := true
 
-# Initialize Yocto build environment via bitbake-setup
-[group('yocto')]
-yocto-init MACHINE="raspberrypi0":
-	uv run bitbake-setup init --non-interactive --source-overrides sources-fixed-revisions.json ./yocto.conf.json poky distro/poky-altcfg machine/{{MACHINE}}
+export KAS_WORK_DIR := env("KAS_WORK_DIR", justfile_directory() / "kas-work")
+kas_config := "kas/base.yml"
 
-# Sync active Yocto setup with changes in yocto.conf.json
+# Fetch and check out Yocto layer repositories without building
 [group('yocto')]
-yocto-update:
-	uv run bitbake-setup update --update-bb-conf=yes --setup-dir bitbake-builds/poky-altcfg-blacksail
+yocto-checkout:
+	mkdir -p "$KAS_WORK_DIR"
+	uv run kas-container checkout {{kas_config}}
 
-# Switch target machine in active Yocto setup (e.g. raspberrypi0, raspberrypi0-wifi, qemuarm64)
+# Build Yocto target in Docker via kas-container (e.g. just yocto-build qemuarm64)
 [group('yocto')]
-yocto-machine MACHINE="raspberrypi0":
-	bash -c 'source bitbake-builds/poky-altcfg-blacksail/build/init-build-env && bitbake-config-build enable-fragment machine/{{MACHINE}}'
+yocto-build MACHINE="raspberrypi0" TARGET="core-image-minimal" *ARGS="":
+	mkdir -p "$KAS_WORK_DIR"
+	KAS_MACHINE={{MACHINE}} KAS_TARGET="{{TARGET}}" uv run kas-container build {{ARGS}} {{kas_config}}
 
-# Build Yocto target (default: core-image-minimal)
+# Open an interactive BitBake shell inside the kas container
 [group('yocto')]
-yocto-build *ARGS="core-image-minimal":
-	bash -c 'source bitbake-builds/poky-altcfg-blacksail/build/init-build-env && bitbake {{ARGS}}'
+yocto-shell MACHINE="raspberrypi0":
+	mkdir -p "$KAS_WORK_DIR"
+	KAS_MACHINE={{MACHINE}} uv run kas-container shell {{kas_config}}
 
-# Boot Yocto image in QEMU via runqemu
+# Boot Yocto image in QEMU inside the kas container via runqemu
 [group('yocto')]
-yocto-sim *ARGS="nographic slirp snapshot":
-	bash -c 'source bitbake-builds/poky-altcfg-blacksail/build/init-build-env && runqemu {{ARGS}}'
+yocto-sim MACHINE="qemuarm64" *ARGS="nographic slirp snapshot":
+	mkdir -p "$KAS_WORK_DIR"
+	KAS_MACHINE={{MACHINE}} uv run kas-container $([ -e /dev/kvm ] && echo --kvm || true) shell {{kas_config}} -c "runqemu {{ARGS}}"
+
+# Update pinned layer revisions in kas/base.lock.yml
+[group('yocto')]
+yocto-lock:
+	mkdir -p "$KAS_WORK_DIR"
+	uv run kas-container lock --update {{kas_config}}
+
+# Clean build artifacts (keeps downloads and sstate cache)
+[group('yocto')]
+yocto-clean:
+	mkdir -p "$KAS_WORK_DIR"
+	uv run kas-container clean {{kas_config}}

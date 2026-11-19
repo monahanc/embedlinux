@@ -1,0 +1,42 @@
+header:
+  version: 19
+
+distro: poky-altcfg
+machine: raspberrypi0
+target: core-image-minimal
+
+repos:
+  embedlinux:
+    layers:
+      meta-embedlinux:
+
+  bitbake:
+    url: https://git.openembedded.org/bitbake
+    branch: "2.20"
+    layers:
+      .: disabled
+
+  openembedded-core:
+    url: https://git.openembedded.org/openembedded-core
+    branch: blacksail
+    layers:
+      meta:
+
+  meta-yocto:
+    url: https://git.yoctoproject.org/meta-yocto
+    branch: blacksail
+    layers:
+      meta-yocto-bsp:
+      meta-poky:
+
+  meta-raspberrypi:
+    url: https://git.yoctoproject.org/meta-raspberrypi
+    branch: master
+    layers:
+      .:
+
+local_conf_header:
+  standard: |
+    CONF_VERSION = "2"
+  root-login: |
+    EXTRA_IMAGE_FEATURES += "allow-empty-password empty-root-password allow-root-login"
