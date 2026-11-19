@@ -1,0 +1,44 @@
+# Read base kernel command line provided by RPi GPU firmware (from cmdline.txt)
+fdt addr ${fdt_addr} && fdt get value bootargs /chosen bootargs
+
+# Default active A/B slot to 'a' if unset
+if test -z "${slot}"; then
+    setenv slot a
+fi
+
+# Persist initial U-Boot environment on boot partition for fw_printenv/fw_setenv
+if test ! -e @@BOOT_MEDIA@@ 0:1 uboot.env; then
+    saveenv
+fi
+
+# Select FIT and rootfs partitions for active slot
+# MBR partition layout:
+#   p1: boot  (vfat)
+#   p2: fita  (raw FIT image)
+#   p3: fitb  (raw FIT image)
+#   p4: extended partition container
+#   p5: roota (ext4)
+#   p6: rootb (ext4)
+#   p7: data  (ext4)
+if test "${slot}" = "b"; then
+    echo "Booting slot B (fitb=p3, rootb=p6)..."
+    setenv fit_part 3
+    setenv root_part /dev/mmcblk0p6
+else
+    echo "Booting slot A (fita=p2, roota=p5)..."
+    setenv fit_part 2
+    setenv root_part /dev/mmcblk0p5
+fi
+
+setenv bootargs "${bootargs} root=${root_part}"
+
+# Load raw FIT image from fita/fitb to 0x06000000 (96 MiB):
+# clear of kernel_addr_r (0x00080000), kernel_comp_addr_r (0x02000000-0x05400000),
+# scriptaddr (0x05400000), fdt_addr_r (0x05600000), and ramdisk_addr_r (0x05700000).
+setenv fit_addr 0x06000000
+@@BOOT_MEDIA@@ dev 0
+part start @@BOOT_MEDIA@@ 0 ${fit_part} fit_start
+part size @@BOOT_MEDIA@@ 0 ${fit_part} fit_size
+@@BOOT_MEDIA@@ read ${fit_addr} ${fit_start} ${fit_size}
+
+bootm ${fit_addr}

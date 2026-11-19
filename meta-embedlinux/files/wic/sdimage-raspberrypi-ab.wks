@@ -1,0 +1,17 @@
+# short-description: Create Raspberry Pi A/B SD card image
+# long-description: Creates an MBR-partitioned SD card image for Raspberry Pi
+# with A/B FIT kernel and rootfs slots plus a persistent data partition:
+#   p1: boot  (vfat, 100M)  - RPi GPU firmware, U-Boot, boot.scr, uboot.env
+#   p2: fita  (raw, 32M)    - Slot A kernel + DTB FIT image
+#   p3: fitb  (raw, 32M)    - Slot B kernel + DTB FIT image
+#   p4: extended partition  - Automatically created by wic for logical partitions
+#   p5: roota (ext4, 256M)  - Slot A root filesystem
+#   p6: rootb (ext4, 256M)  - Slot B root filesystem
+#   p7: data  (ext4, 128M)  - Persistent data partition
+
+part /boot --source bootimg-partition --ondisk mmcblk0 --fstype=vfat --label boot --active --align 4096 --fixed-size 100M
+part --source rawcopy --sourceparams="file=fitImage" --ondisk mmcblk0 --fstype=none --align 4096 --fixed-size 32M
+part --source rawcopy --sourceparams="file=fitImage" --ondisk mmcblk0 --fstype=none --align 4096 --fixed-size 32M
+part / --source rootfs --ondisk mmcblk0 --fstype=ext4 --label roota --align 4096 --fixed-size 256M
+part --source rootfs --ondisk mmcblk0 --fstype=ext4 --label rootb --align 4096 --fixed-size 256M
+part /data --ondisk mmcblk0 --fstype=ext4 --label data --align 4096 --fixed-size 128M
