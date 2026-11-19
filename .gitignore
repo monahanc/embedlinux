@@ -1,10 +1,2 @@
-initramfs/*
-!initramfs/init
-initramfs.cpio.gz
-modules/*.o*
-modules/*.ko*
-modules/*.mod*
-modules/.*
-modules/Module.symvers
 bitbake-builds/
 .venv/
