@@ -1,0 +1,13 @@
+[Unit]
+Description=Configure USB composite gadget (NCM Ethernet + ACM Serial)
+After=local-fs.target sys-kernel-config.mount systemd-modules-load.service systemd-udevd.service
+Wants=sys-kernel-config.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/usb-gadget start
+ExecStop=/usr/sbin/usb-gadget stop
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,6 @@
+IMAGE_FEATURES:append = " ssh-server-dropbear"
 IMAGE_INSTALL:append = " hello mcwrapper kernel-module-test"
-IMAGE_INSTALL:append:rpi = " ab-boot"
+IMAGE_INSTALL:append:rpi = " ab-boot usb-gadget"
 
 RPI_AB_WIC_DEPENDS = ""
 RPI_AB_WIC_DEPENDS:rpi = " \

@@ -84,7 +84,7 @@ if test "${load_ok}" = "1"; then
     if test "${upgrade_available}" = "1"; then
         wdt dev watchdog@7e100000 && wdt start 15000
     fi
-    bootm ${fit_addr}
+    bootm ${fit_addr}@@FIT_BOOT_CONFIG@@
 fi
 
 echo "ERROR: Failed to boot slot ${slot}!"

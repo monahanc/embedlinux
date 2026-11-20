@@ -1,0 +1,136 @@
+#!/bin/sh
+set -eu
+
+CONFIGFS="/sys/kernel/config"
+GADGET="${CONFIGFS}/usb_gadget/g1"
+
+derive_serial_and_macs() {
+    serial=""
+    if [ -r /proc/device-tree/serial-number ]; then
+        serial=$(tr -dc '0-9a-fA-F' < /proc/device-tree/serial-number)
+    fi
+    if [ -z "$serial" ]; then
+        serial="0000000000000001"
+    fi
+
+    mac_tail=$(printf '0000000000%s' "$serial" | tr 'A-F' 'a-f' | sed 's/.*\(..........\)$/\1/')
+    b1=$(printf '%s' "$mac_tail" | cut -c1-2)
+    b2=$(printf '%s' "$mac_tail" | cut -c3-4)
+    b3=$(printf '%s' "$mac_tail" | cut -c5-6)
+    b4=$(printf '%s' "$mac_tail" | cut -c7-8)
+    b5=$(printf '%s' "$mac_tail" | cut -c9-10)
+
+    # Locally-administered unicast MACs (stable across reboots)
+    dev_mac="02:${b1}:${b2}:${b3}:${b4}:${b5}"
+    host_mac="06:${b1}:${b2}:${b3}:${b4}:${b5}"
+}
+
+find_udc() {
+    udc=""
+    i=0
+    while [ "$i" -lt 5 ]; do
+        for u in /sys/class/udc/*; do
+            if [ -e "$u" ]; then
+                udc=$(basename "$u")
+                return 0
+            fi
+        done
+        i=$((i + 1))
+        sleep 1
+    done
+    return 1
+}
+
+stop_gadget() {
+    if [ ! -d "$GADGET" ]; then
+        return 0
+    fi
+
+    if [ -w "$GADGET/UDC" ]; then
+        printf '' > "$GADGET/UDC" 2>/dev/null || true
+    fi
+
+    rm -f "$GADGET/configs/c.1/ncm.usb0" "$GADGET/configs/c.1/acm.usb0"
+    rmdir "$GADGET/configs/c.1/strings/0x409" 2>/dev/null || true
+    rmdir "$GADGET/configs/c.1" 2>/dev/null || true
+    rmdir "$GADGET/functions/ncm.usb0" 2>/dev/null || true
+    rmdir "$GADGET/functions/acm.usb0" 2>/dev/null || true
+    rmdir "$GADGET/strings/0x409" 2>/dev/null || true
+    rmdir "$GADGET" 2>/dev/null || true
+}
+
+start_gadget() {
+    modprobe dwc2 2>/dev/null || true
+    modprobe libcomposite
+    modprobe usb_f_ncm
+    modprobe usb_f_acm
+
+    if ! mountpoint -q "$CONFIGFS"; then
+        mount -t configfs none "$CONFIGFS"
+    fi
+
+    if ! find_udc; then
+        echo "usb-gadget: no UDC found in /sys/class/udc; skipping" >&2
+        exit 0
+    fi
+
+    if [ -d "$GADGET" ]; then
+        if [ -r "$GADGET/UDC" ] && [ -n "$(cat "$GADGET/UDC")" ]; then
+            echo "usb-gadget: already bound to $(cat "$GADGET/UDC")"
+            exit 0
+        fi
+        stop_gadget
+    fi
+
+    derive_serial_and_macs
+
+    mkdir -p "$GADGET"
+    echo 0x1d6b > "$GADGET/idVendor"   # Linux Foundation
+    echo 0x0104 > "$GADGET/idProduct"  # Multifunction Composite Gadget
+    echo 0x0100 > "$GADGET/bcdDevice"
+    echo 0x0200 > "$GADGET/bcdUSB"
+
+    # IAD composite class (required for Windows 10/11 + Linux native enumeration)
+    echo 0xEF > "$GADGET/bDeviceClass"
+    echo 0x02 > "$GADGET/bDeviceSubClass"
+    echo 0x01 > "$GADGET/bDeviceProtocol"
+
+    mkdir -p "$GADGET/strings/0x409"
+    printf '%s' "$serial" > "$GADGET/strings/0x409/serialnumber"
+    printf 'EmbedLinux' > "$GADGET/strings/0x409/manufacturer"
+    printf 'Pi Zero USB Gadget (NCM+ACM)' > "$GADGET/strings/0x409/product"
+
+    mkdir -p "$GADGET/configs/c.1/strings/0x409"
+    echo 250 > "$GADGET/configs/c.1/MaxPower"
+    printf 'NCM Ethernet + ACM Serial' > "$GADGET/configs/c.1/strings/0x409/configuration"
+
+    # CDC NCM Ethernet (native driver on Windows 10/11, Linux, macOS)
+    mkdir -p "$GADGET/functions/ncm.usb0"
+    printf '%s' "$dev_mac" > "$GADGET/functions/ncm.usb0/dev_addr"
+    printf '%s' "$host_mac" > "$GADGET/functions/ncm.usb0/host_addr"
+    ln -s "$GADGET/functions/ncm.usb0" "$GADGET/configs/c.1/ncm.usb0"
+
+    # CDC ACM Serial Console (/dev/ttyGS0 <-> COMx / /dev/ttyACM0)
+    mkdir -p "$GADGET/functions/acm.usb0"
+    ln -s "$GADGET/functions/acm.usb0" "$GADGET/configs/c.1/acm.usb0"
+
+    printf '%s' "$udc" > "$GADGET/UDC"
+    echo "usb-gadget: bound NCM+ACM gadget to $udc (dev=$dev_mac host=$host_mac)"
+}
+
+case "${1:-start}" in
+    start)
+        start_gadget
+        ;;
+    stop)
+        stop_gadget
+        ;;
+    restart)
+        stop_gadget
+        start_gadget
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}" >&2
+        exit 1
+        ;;
+esac

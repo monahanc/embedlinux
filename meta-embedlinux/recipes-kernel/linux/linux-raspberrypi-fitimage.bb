@@ -10,5 +10,6 @@ inherit kernel-fit-image
 UBOOT_ARCH = "${@oe.kernel.map_uboot_arch(d)}"
 PKGV = "${@oe.kernel.get_version_file("${STAGING_KERNEL_BUILDDIR}")}"
 
-# Bundle board DTBs into the FIT image (exclude RPi firmware overlay maps and unrelated HAT overlays)
-KERNEL_DEVICETREE = "${RPI_KERNEL_DEVICETREE}"
+# Bundle board DTBs and the dwc2 USB OTG/gadget overlay into the FIT image
+# (exclude RPi firmware overlay maps and unrelated HAT overlays)
+KERNEL_DEVICETREE = "${RPI_KERNEL_DEVICETREE} overlays/dwc2.dtbo"
