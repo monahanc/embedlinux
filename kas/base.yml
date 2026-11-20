@@ -35,8 +35,15 @@ repos:
     layers:
       .:
 
+  meta-rauc:
+    url: https://github.com/rauc/meta-rauc.git
+    branch: master
+    layers:
+      .:
+
 local_conf_header:
   standard: |
     CONF_VERSION = "2"
+    DISTRO_FEATURES:append = " rauc"
   root-login: |
     EXTRA_IMAGE_FEATURES += "allow-empty-password empty-root-password allow-root-login"

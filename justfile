@@ -9,11 +9,22 @@ yocto-checkout:
 	mkdir -p "$KAS_WORK_DIR"
 	uv run kas-container checkout {{kas_config}}
 
+# Generate local RAUC development CA and signing keys if not present
+[group('yocto')]
+rauc-keygen *ARGS="":
+	./scripts/rauc-keygen.sh {{ARGS}}
+
 # Build Yocto target in Docker via kas-container (e.g. just yocto-build qemuarm64)
 [group('yocto')]
-yocto-build MACHINE="raspberrypi0" TARGET="core-image-minimal" *ARGS="":
+yocto-build MACHINE="raspberrypi0" TARGET="core-image-minimal" *ARGS="": rauc-keygen
 	mkdir -p "$KAS_WORK_DIR"
 	KAS_MACHINE={{MACHINE}} KAS_TARGET="{{TARGET}}" uv run kas-container build {{ARGS}} {{kas_config}}
+
+# Build signed RAUC OTA bundle (.raucb)
+[group('yocto')]
+yocto-bundle MACHINE="raspberrypi0" *ARGS="": rauc-keygen
+	mkdir -p "$KAS_WORK_DIR"
+	KAS_MACHINE={{MACHINE}} KAS_TARGET="embedlinux-bundle" uv run kas-container build {{ARGS}} {{kas_config}}
 
 # Open an interactive BitBake shell inside the kas container
 [group('yocto')]

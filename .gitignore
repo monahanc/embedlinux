@@ -1,3 +1,4 @@
 bitbake-builds/
 kas-work/
 .venv/
+meta-embedlinux/recipes-core/rauc/files/*.pem

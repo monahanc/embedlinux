@@ -11,3 +11,5 @@ overrides:
       commit: d0119aa2eb77b985fcd33ac527d5c0287eb68e58
     meta-raspberrypi:
       commit: 72f7dfc6a6fea2490ad28ae9c660fb5728f87c40
+    meta-rauc:
+      commit: 02736f3f27fa3a534b50b12a785ca9838084cbe4

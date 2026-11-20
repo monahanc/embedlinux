@@ -1,67 +1,57 @@
 # Read base kernel command line provided by RPi GPU firmware (from cmdline.txt)
 fdt addr ${fdt_addr} && fdt get value bootargs /chosen bootargs
 
-# Initialize A/B boot state defaults if unset
-if test -z "${slot}"; then
-    setenv slot a
-fi
-if test -z "${upgrade_available}"; then
-    setenv upgrade_available 0
-fi
-if test -z "${bootcount}"; then
-    setenv bootcount 0
-fi
-if test -z "${bootlimit}"; then
-    setenv bootlimit 3
-fi
+# Initialize RAUC U-Boot slot selection defaults if unset
+test -n "${BOOT_ORDER}" || setenv BOOT_ORDER "A B"
+test -n "${BOOT_A_LEFT}" || setenv BOOT_A_LEFT 3
+test -n "${BOOT_B_LEFT}" || setenv BOOT_B_LEFT 3
 
-# Persist initial U-Boot environment on boot partition for fw_printenv/fw_setenv
-if test ! -e @@BOOT_MEDIA@@ 0:1 uboot.env; then
-    saveenv
-fi
-
-# Automatic A/B fallback state machine:
-# When upgrade_available=1, track boot attempts; if bootcount reaches bootlimit
-# without userspace confirming the boot, roll back to the previous slot.
-if test "${upgrade_available}" = "1"; then
-    if test ${bootcount} -ge ${bootlimit}; then
-        echo "Boot limit (${bootlimit}) reached on slot ${slot}! Rolling back..."
-        if test "${slot}" = "b"; then
-            setenv slot a
-        else
-            setenv slot b
-        fi
-        setenv upgrade_available 0
-        setenv bootcount 0
-        saveenv
-        echo "Rolled back to slot ${slot}"
-    else
-        setexpr bootcount ${bootcount} + 1
-        saveenv
-        echo "Unconfirmed slot ${slot}: boot attempt ${bootcount}/${bootlimit}"
-    fi
-fi
-
-# Select FIT and rootfs partitions for active slot
+# Select highest-priority RAUC slot with remaining boot attempts
 # MBR partition layout:
 #   p1: boot  (vfat)
-#   p2: fita  (raw FIT image)
-#   p3: fitb  (raw FIT image)
+#   p2: fita  (raw FIT image -> RAUC slot kernel.0)
+#   p3: fitb  (raw FIT image -> RAUC slot kernel.1)
 #   p4: extended partition container
-#   p5: roota (ext4)
-#   p6: rootb (ext4)
-#   p7: data  (ext4)
-if test "${slot}" = "b"; then
-    echo "Booting slot B (fitb=p3, rootb=p6)..."
-    setenv fit_part 3
-    setenv root_part /dev/mmcblk0p6
-else
-    echo "Booting slot A (fita=p2, roota=p5)..."
-    setenv fit_part 2
-    setenv root_part /dev/mmcblk0p5
+#   p5: roota (ext4 -> RAUC slot rootfs.0, bootname=A)
+#   p6: rootb (ext4 -> RAUC slot rootfs.1, bootname=B)
+#   p7: data  (ext4 -> persistent /data, rauc.status)
+setenv rauc_slot
+setenv fit_part
+setenv root_part
+for BOOT_SLOT in ${BOOT_ORDER}; do
+    if test "x${rauc_slot}" != "x"; then
+        true
+    elif test "x${BOOT_SLOT}" = "xA"; then
+        if test ${BOOT_A_LEFT} -gt 0; then
+            echo "Found valid RAUC slot A (${BOOT_A_LEFT} attempts left)"
+            setexpr BOOT_A_LEFT ${BOOT_A_LEFT} - 1
+            setenv rauc_slot "A"
+            setenv fit_part 2
+            setenv root_part "/dev/mmcblk0p5"
+        fi
+    elif test "x${BOOT_SLOT}" = "xB"; then
+        if test ${BOOT_B_LEFT} -gt 0; then
+            echo "Found valid RAUC slot B (${BOOT_B_LEFT} attempts left)"
+            setexpr BOOT_B_LEFT ${BOOT_B_LEFT} - 1
+            setenv rauc_slot "B"
+            setenv fit_part 3
+            setenv root_part "/dev/mmcblk0p6"
+        fi
+    fi
+done
+
+if test -z "${rauc_slot}"; then
+    echo "No valid RAUC slot found! Resetting boot attempts to 3 and rebooting..."
+    setenv BOOT_A_LEFT 3
+    setenv BOOT_B_LEFT 3
+    saveenv
+    reset
 fi
 
-setenv bootargs "${bootargs} root=${root_part}"
+# Persist decremented boot attempt counter before booting
+saveenv
+
+setenv bootargs "${bootargs} root=${root_part} rauc.slot=${rauc_slot}"
 
 # Load raw FIT image from fita/fitb to 0x06000000 (96 MiB):
 # clear of kernel_addr_r (0x00080000), kernel_comp_addr_r (0x02000000-0x05400000),
@@ -79,16 +69,10 @@ if @@BOOT_MEDIA@@ dev 0; then
 fi
 
 if test "${load_ok}" = "1"; then
-    # Arm BCM2835 hardware watchdog (15s max) during unconfirmed boots so a
-    # silent early-kernel hang forces a reset and triggers fallback.
-    if test "${upgrade_available}" = "1"; then
-        wdt dev watchdog@7e100000 && wdt start 15000
-    fi
+    # Arm BCM2835 hardware watchdog (15s max) so early kernel hangs reset and trigger RAUC fallback
+    wdt dev watchdog@7e100000 && wdt start 15000
     bootm ${fit_addr}@@FIT_BOOT_CONFIG@@
 fi
 
-echo "ERROR: Failed to boot slot ${slot}!"
-if test "${upgrade_available}" = "1"; then
-    echo "Resetting to retry/rollback..."
-    reset
-fi
+echo "ERROR: Failed to boot RAUC slot ${rauc_slot}! Resetting..."
+reset
